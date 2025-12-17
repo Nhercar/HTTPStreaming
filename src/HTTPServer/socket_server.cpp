@@ -123,11 +123,12 @@ void SocketServer::run(RequestHandlerStop handler) {
 }
 
 void SocketServer::handleClient(std::stop_token st, SOCKET clientSocket, const RequestHandlerStop& handler) {
-    // Recibir datos
+    bool socketClosed = false;
     char buffer[4096];
     if (st.stop_requested()) {
         shutdown(clientSocket, SD_BOTH);
         closesocket(clientSocket);
+        socketClosed = true;
         return;
     }
 
@@ -145,18 +146,16 @@ void SocketServer::handleClient(std::stop_token st, SOCKET clientSocket, const R
 
         // Llamar al handler - ahora gestiona el socket directamente (permite streaming)
         handler(clientSocket, request, st);
-    }
-    else if (bytesReceived == 0) {
+    } else if (bytesReceived == 0) {
         Logger::getInstance().info("Cliente cerró la conexión sin enviar datos");
-    }
-    else {
+    } else {
         Logger::getInstance().error("Error en recv: " + std::to_string(WSAGetLastError()));
     }
 
-    // Cerrar conexión
-    closesocket(clientSocket);
-    Logger::getInstance().info("Conexión cerrada");
-    // El hilo marcará finished=true; el recolector eliminará del mapa
+    if (!socketClosed) {
+        closesocket(clientSocket);
+        Logger::getInstance().info("Conexión cerrada");
+    }
 }
 
 void SocketServer::stop() {
