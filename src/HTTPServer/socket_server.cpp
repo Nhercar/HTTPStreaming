@@ -6,6 +6,8 @@
 #include <future>
 #include <unordered_map>
 #include <algorithm>
+#include <chrono>
+#include <winsock2.h>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -64,32 +66,20 @@ bool SocketServer::start() {
     std::ostringstream oss;
     oss << "Servidor escuchando en http://localhost:" << port;
     Logger::getInstance().info(oss.str());
+
+    startMonitor();
     
     running = true;
     return true;
 }
 
-void SocketServer::run(RequestHandler handler) {
-    // Adaptador: ignora stop_token
-    RequestHandlerStop adapted = [handler](SOCKET s, const std::string& req, std::stop_token) {
-        handler(s, req);
-    };
-    run(adapted);
-}
 
 void SocketServer::run(RequestHandlerStop handler) {
     while (running) {
         // Limpiar tareas terminadas antes de aceptar nuevo cliente
         cleanupFinishedThreads();
+        
 
-        std::ostringstream oss;
-        size_t currentClients = 0;
-        {
-            std::lock_guard<std::mutex> lock(clientsMutex);
-            currentClients = clients.size();
-        }
-        oss << "Hay " << currentClients << " clientes activos";
-        Logger::getInstance().info(oss.str());
 
         // Aceptar conexión
         SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
@@ -100,7 +90,7 @@ void SocketServer::run(RequestHandlerStop handler) {
             continue;
         }
 
-        if (static_cast<int>(currentClients) >= MAX_THREADS) {
+        if (static_cast<int>(getActiveClients ()) >= MAX_THREADS) {
             Logger::getInstance().info("Límite de clientes superado.");
             closesocket(clientSocket);
             continue;
@@ -118,7 +108,9 @@ void SocketServer::run(RequestHandlerStop handler) {
         {
             std::lock_guard<std::mutex> lock(clientsMutex);
             clients.emplace(clientSocket, ClientRecord{ std::move(th), finished });
+            
         }
+
     }
 }
 
@@ -132,30 +124,52 @@ void SocketServer::handleClient(std::stop_token st, SOCKET clientSocket, const R
         return;
     }
 
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-    
-    Logger::getInstance().debug("bytesReceived = " + std::to_string(bytesReceived));
-    
-    if (bytesReceived > 0) {
-        buffer[bytesReceived] = '\0';
-        std::string request(buffer, bytesReceived);
-        
-        std::ostringstream oss;
-        oss << "Request recibido (" << bytesReceived << " bytes):\n" << request;
-        Logger::getInstance().info(oss.str());
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(clientSocket, &readfds);
 
-        // Llamar al handler - ahora gestiona el socket directamente (permite streaming)
-        handler(clientSocket, request, st);
-    } else if (bytesReceived == 0) {
-        Logger::getInstance().info("Cliente cerró la conexión sin enviar datos");
+    timeval timeout;
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+
+    int sel = select(0, &readfds, nullptr, nullptr, &timeout);
+    if (sel > 0 && FD_ISSET(clientSocket, &readfds)) {
+    // Hay datos listos para leer
+    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+       Logger::getInstance().info("handleClient: bytesReceived = " + std::to_string(bytesReceived) + " en socket " + std::to_string(clientSocket));
+        if (bytesReceived > 0) {
+            buffer[bytesReceived] = '\0';
+            std::string request(buffer, bytesReceived);
+            handler(clientSocket, request, st);
+        } else if (bytesReceived == 0) {
+            Logger::getInstance().info("Cliente cerró la conexión sin enviar datos");
+        } else {
+            Logger::getInstance().error("Error en recv: " + std::to_string(WSAGetLastError()));
+        }
+
+    // ... (maneja bytesReceived como antes)
+    } else if (sel == 0) {
+        // Timeout: no llegaron datos en 2 segundos
+        Logger::getInstance().info("Timeout esperando datos del cliente en socket " + std::to_string(clientSocket));
+         if (!socketClosed) {
+            closesocket(clientSocket);
+            Logger::getInstance().info("Conexion cerrada");
+        }
     } else {
-        Logger::getInstance().error("Error en recv: " + std::to_string(WSAGetLastError()));
+        // Error en select
+        Logger::getInstance().error("Error en select: " + std::to_string(WSAGetLastError()) + " en socket " + std::to_string(clientSocket));
+        if (!socketClosed) {
+            closesocket(clientSocket);
+            Logger::getInstance().info("Conexion cerrada");
+        }
     }
 
     if (!socketClosed) {
         closesocket(clientSocket);
-        Logger::getInstance().info("Conexión cerrada");
+        Logger::getInstance().info("Conexion cerrada");
     }
+
+ 
 }
 
 void SocketServer::stop() {
@@ -167,8 +181,11 @@ void SocketServer::stop() {
         serverSocket = INVALID_SOCKET;
     }
 
+    stopMonitor();
     // Forzar cierre de todas las conexiones activas
     shutdownAllClients();
+
+    cleanupFinishedThreads();
 
     joinAllThreads();
 
@@ -240,4 +257,26 @@ void SocketServer::shutdownAllClients() {
         }
     }
     Logger::getInstance().info("Cerradas " + std::to_string(count) + " conexiones activas");
+}
+
+size_t SocketServer::getActiveClients(){  
+    std::scoped_lock lock(clientsMutex);    
+    return clients.size();;
+}
+
+
+void SocketServer::startMonitor() {
+    // jthread member in .h: std::jthread monitorThread;
+    monitorThread = std::jthread([this](std::stop_token st){
+        using namespace std::chrono_literals;
+        while (!st.stop_requested()) {
+            cleanupFinishedThreads();
+            Logger::getInstance().info("Monitor: " + std::to_string(getActiveClients()) + " clientes activos");
+            std::this_thread::sleep_for(1s);
+        }
+    });
+}
+
+void SocketServer::stopMonitor() {
+    if (monitorThread.joinable()) monitorThread.request_stop();
 }

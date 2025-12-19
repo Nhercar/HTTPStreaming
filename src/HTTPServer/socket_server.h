@@ -24,7 +24,6 @@ public:
     ~SocketServer();
     
     bool start();                 // Inicializa y escucha en el puerto
-    void run(RequestHandler handler);         // Acepta conexiones en loop (bloqueante)
     void run(RequestHandlerStop handler);     // Variante con stop_token
     void stop();                  // Limpieza y detención
 
@@ -32,9 +31,15 @@ public:
     void shutdownClient(SOCKET clientSocket);   // Cerrar un cliente concreto desde el servidor
     void shutdownAllClients();                  // Cerrar todos los clientes desde el servidor
 
+    size_t getActiveClients();
+
+    void startMonitor();
+
+    void stopMonitor();
+
 private:
-    static const int MAX_THREADS = 10;
-    std::atomic<int> activeThreads{0}; // mantenido para logging si se necesita
+    static const int MAX_THREADS = 5;
+
 
     int port;
     SOCKET serverSocket;
@@ -44,6 +49,8 @@ private:
         std::jthread thread;                                   // Hilo del cliente
         std::shared_ptr<std::atomic<bool>> finished;            // Marca de finalización cooperativa
     };
+
+    std::jthread monitorThread;
 
     // Mapa socket -> hilo/estado asociado
     std::unordered_map<SOCKET, ClientRecord> clients;

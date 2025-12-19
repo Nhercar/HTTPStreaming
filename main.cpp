@@ -2,36 +2,36 @@
 #include "http_parser.h"
 #include "http_response.h"
 #include "logger.h"
+#include "router.h"
+#include "mjpeg_handler.h"
+
 #include <WinSock2.h>
 #include <string>
 
-// Handler con cancelación: procesa request y escribe respuesta al socket
-static void basicHandler(SOCKET client, const std::string& rawRequest, std::stop_token st) {
-    HTTPRequest req = parseHTTPRequest(rawRequest);
-    Logger::getInstance().info("Metodo: " + req.method + ", Path: " + req.path);
 
-    HTTPResponse resp;
-    resp.statusCode = 200;
-    resp.statusMessage = "OK";
-    resp.headers["Content-Type"] = "text/html; charset=UTF-8";
-    resp.body = "<html><body><h1>¡Hola desde C++ Multihilo!</h1></body></html>";
-
-    const std::string payload = buildHttpResponse(resp);
-
-    size_t total = 0;
-    while (total < payload.size() && !st.stop_requested()) {
-        int sent = send(client, payload.data() + total, static_cast<int>(payload.size() - total), 0);
-        if (sent == SOCKET_ERROR) {
-            Logger::getInstance().error("Error en send: " + std::to_string(WSAGetLastError()));
-            break;
-        }
-        total += static_cast<size_t>(sent);
-    }
-}
 
 int main() {
     Logger::getInstance().info("Iniciando servidor HTTP...");
 
+    // Crear router y registrar rutas
+    Router router;
+    router.registerRoute("GET", "/", homeHandler);
+    router.registerRoute("GET", "/stream", streamHandler);
+    router.setDefaultRoute(notFoundHandler);
+
+    // Handler que parsea el request y delega al router
+    auto routedHandler = [&router](SOCKET socket, const std::string& rawRequest, std::stop_token st) {
+        // Parsear request
+        HTTPRequest req = parseHTTPRequest(rawRequest);
+        Logger::getInstance().info("Metodo: " + req.method + ", Path: " + req.path);
+        
+        // Despachar al router
+        if (!router.route(req.method, req.path, socket, req.body, st)) {
+            Logger::getInstance().error("Ruta no manejada (sin default): " + req.method + " " + req.path);
+        }
+    };
+
+    // Crear servidor
     SocketServer server(8080);
 
     if (!server.start()) {
@@ -39,8 +39,8 @@ int main() {
         return 1;
     }
 
-    // Correr servidor con handler con stop_token
-    server.run(basicHandler);
+    // Correr servidor
+    server.run(routedHandler);
 
     return 0;
 }

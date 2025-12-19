@@ -13,12 +13,14 @@ set(HTTP_SERVER_SOURCES
     src/HTTPServer/logger.cpp
     src/HTTPServer/router.cpp
     src/HTTPServer/socket_server.cpp
+    src/HTTPServer/socket_utils.cpp
+    src/streaming/mjpeg_handler.cpp
     main.cpp
 )
 
 add_executable(HTTPStreaming ${HTTP_SERVER_SOURCES})
 
-target_include_directories(HTTPStreaming PRIVATE src src/HTTPServer)
+target_include_directories(HTTPStreaming PRIVATE src src/HTTPServer src/streaming)
 
 if (WIN32)
     target_link_libraries(HTTPStreaming PRIVATE ws2_32)
