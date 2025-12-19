@@ -1,6 +1,7 @@
 #include "mjpeg_handler.h"
 #include "socket_utils.h"
 #include "logger.h"
+#include "../codec/frame_encoder.h"
 
 
 
@@ -52,6 +53,9 @@ void notFoundHandler(SOCKET socket, const std::string&, std::stop_token st) {
 
 
 void streamHandler(SOCKET socket, const std::string&, std::stop_token st) {
+    FrameEncoder encoder;
+    const std::string imagePath = "C:/Users/nacho/OneDrive/Escritorio/nacho.jpg";
+
     HTTPResponse resp;
     resp.statusCode = 200;
     resp.statusMessage = "OK";
@@ -68,17 +72,22 @@ void streamHandler(SOCKET socket, const std::string&, std::stop_token st) {
     int frameId = 0;
     
     while (!st.stop_requested()) {
-        std::string body = "dummy frame " + std::to_string(frameId++) + "\n"; // cambia a JPEG real después
+        std::vector<uint8_t> jpegData;
+        if (!encoder.readJpegFromDisk(imagePath, jpegData)){
+            Logger::getInstance().error("No se pudo leer la imagen JPEG de disco");
+            break;
+        }
 
-        std::ostringstream part;
-        part << "--" << boundary << "\r\n"
-             << "Content-Type: text/plain\r\n"
-             << "Content-Length: " << body.size() << "\r\n\r\n"
-             << body << "\r\n";
+           std::ostringstream part;
+           part << "--" << boundary << "\r\n"
+               << "Content-Type: image/jpeg\r\n"
+               << "Content-Length: " << jpegData.size() << "\r\n\r\n";
 
-        std::string chunk = part.str();
-        if (!sendAll(socket, reinterpret_cast<const uint8_t*>(chunk.data()), chunk.size())) break;
-
+           std::string chunk = part.str();
+           if (!sendAll(socket, reinterpret_cast<const uint8_t*>(chunk.data()), chunk.size())) break;
+           if (!sendAll(socket, jpegData.data(), jpegData.size())) break;
+           if (!sendAll(socket, reinterpret_cast<const uint8_t*>("\r\n"), 2)) break;
+        
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }

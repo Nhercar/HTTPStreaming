@@ -78,9 +78,6 @@ void SocketServer::run(RequestHandlerStop handler) {
     while (running) {
         // Limpiar tareas terminadas antes de aceptar nuevo cliente
         cleanupFinishedThreads();
-        
-
-
         // Aceptar conexión
         SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket == INVALID_SOCKET) {
@@ -89,7 +86,6 @@ void SocketServer::run(RequestHandlerStop handler) {
             }
             continue;
         }
-
         if (static_cast<int>(getActiveClients ()) >= MAX_THREADS) {
             Logger::getInstance().info("Límite de clientes superado.");
             closesocket(clientSocket);
