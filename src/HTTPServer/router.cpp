@@ -7,7 +7,7 @@ void Router::registerRoute(const std::string& method, const std::string& path, R
     Logger::getInstance().info("Ruta registrada: " + key);
 }
 
-bool Router::route(const std::string& method, const std::string& path, SOCKET socket, const std::string& requestBody, std::stop_token st) const {
+bool Router::route(const std::string& method, const std::string& path, socket_t socket, const std::string& requestBody, std::stop_token st) const {
     std::string key = makeKey(method, path);
     auto it = routes.find(key);
     if (it != routes.end()) { 

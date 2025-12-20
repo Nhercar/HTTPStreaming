@@ -5,9 +5,9 @@
 #include <string>
 #include <unordered_map>
 #include <stop_token>
-#include <WinSock2.h>
+#include "socket_types.h"
 
-using RouterHandler = std::function<void(SOCKET, const std::string&, std::stop_token)>;
+using RouterHandler = std::function<void(socket_t, const std::string&, std::stop_token)>;
 
 
 class Router{

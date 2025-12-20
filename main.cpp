@@ -1,22 +1,29 @@
+#include "socket_interface.h"
 #include "socket_server.h"
+#include "socket_server_win.h"
+#include "socket_server_posix.h"
 #include "http_parser.h"
 #include "http_response.h"
 #include "logger.h"
 #include "router.h"
 #include "mjpeg_handler.h"
+#include "camera/webcam.h"
 
-#include <WinSock2.h>
+#include <memory>
 #include <string>
 
 
 
 int main() {
+
     Logger::getInstance().info("Iniciando servidor HTTP...");
 
     // Crear router y registrar rutas
     Router router;
     router.registerRoute("GET", "/", homeHandler);
-    router.registerRoute("GET", "/stream", streamHandler);
+    // Create MJPEG handler instance and register
+    auto mjpegHandler = std::make_shared<MJPEGHandler>(0);
+    router.registerRoute("GET", "/stream", [mjpegHandler](socket_t s, const std::string& req, std::stop_token st){ (*mjpegHandler)(s, req, st); });
     router.setDefaultRoute(notFoundHandler);
 
     // Handler que parsea el request y delega al router
@@ -31,16 +38,21 @@ int main() {
         }
     };
 
-    // Crear servidor
-    SocketServer server(8080);
+    // Crear servidor (implementación por SO)
+    std::unique_ptr<ISocketServer> server;
+#if defined(_WIN32) || defined(_WIN64)
+    server = std::make_unique<SocketServerWin>(8080);
+#else
+    server = std::make_unique<SocketServerPosix>(8080);
+#endif
 
-    if (!server.start()) {
+    if (!server->start()) {
         Logger::getInstance().error("Fallo al iniciar el servidor");
         return 1;
     }
 
     // Correr servidor
-    server.run(routedHandler);
+    server->run(routedHandler);
 
     return 0;
 }

@@ -1,18 +1,27 @@
 #include "socket_server.h"
 #include "logger.h"
-#include <WS2tcpip.h>
+#include "socket_types.h"
+
 #include <thread>
 #include <sstream>
 #include <future>
 #include <unordered_map>
 #include <algorithm>
 #include <chrono>
+
+#if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
-
+#include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
+#endif
 
-SocketServer::SocketServer(int port) 
-    : port(port), serverSocket(INVALID_SOCKET), running(false) {
+SocketServer::SocketServer(int port)
+    : port(port), running(false) {
+#if defined(_WIN32) || defined(_WIN64)
+    serverSocket = INVALID_SOCKET;
+#else
+    serverSocket = -1;
+#endif
 }
 
 SocketServer::~SocketServer() {
@@ -20,22 +29,22 @@ SocketServer::~SocketServer() {
 }
 
 bool SocketServer::start() {
-    // Inicializar Winsock
-    WSADATA wsaData;
-    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (result != 0) {
-        Logger::getInstance().error("WSAStartup falló: " + std::to_string(result));
-        return false;
-    }
-    Logger::getInstance().info("Winsock inicializado correctamente");
-
+    // Socket initialization is OS-implementation responsibility
+    int result = 0;
     // Crear socket TCP
     serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+#if defined(_WIN32) || defined(_WIN64)
     if (serverSocket == INVALID_SOCKET) {
         Logger::getInstance().error("Error creando socket: " + std::to_string(WSAGetLastError()));
         WSACleanup();
         return false;
     }
+#else
+    if (serverSocket < 0) {
+        Logger::getInstance().error("Error creando socket");
+        return false;
+    }
+#endif
     Logger::getInstance().info("Socket creado correctamente");
 
     // Configurar dirección
@@ -46,22 +55,38 @@ bool SocketServer::start() {
 
     // Bind
     result = bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
+#if defined(_WIN32) || defined(_WIN64)
     if (result == SOCKET_ERROR) {
         Logger::getInstance().error("Error en bind: " + std::to_string(WSAGetLastError()));
         closesocket(serverSocket);
         WSACleanup();
         return false;
     }
+#else
+    if (result < 0) {
+        Logger::getInstance().error("Error en bind");
+        close(serverSocket);
+        return false;
+    }
+#endif
     Logger::getInstance().info("Socket enlazado al puerto " + std::to_string(port));
 
     // Listen
     result = listen(serverSocket, SOMAXCONN);
+#if defined(_WIN32) || defined(_WIN64)
     if (result == SOCKET_ERROR) {
         Logger::getInstance().error("Error en listen: " + std::to_string(WSAGetLastError()));
         closesocket(serverSocket);
         WSACleanup();
         return false;
     }
+#else
+    if (result < 0) {
+        Logger::getInstance().error("Error en listen");
+        close(serverSocket);
+        return false;
+    }
+#endif
     
     std::ostringstream oss;
     oss << "Servidor escuchando en http://localhost:" << port;
@@ -79,16 +104,30 @@ void SocketServer::run(RequestHandlerStop handler) {
         // Limpiar tareas terminadas antes de aceptar nuevo cliente
         cleanupFinishedThreads();
         // Aceptar conexión
-        SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
+        socket_t clientSocket = accept(serverSocket, nullptr, nullptr);
+#if defined(_WIN32) || defined(_WIN64)
         if (clientSocket == INVALID_SOCKET) {
             if (running) {
                 Logger::getInstance().error("Error al aceptar cliente: " + std::to_string(WSAGetLastError()));
             }
             continue;
         }
+#else
+        if (clientSocket < 0) {
+            if (running) {
+                Logger::getInstance().error("Error al aceptar cliente");
+            }
+            continue;
+        }
+#endif
         if (static_cast<int>(getActiveClients ()) >= MAX_THREADS) {
             Logger::getInstance().info("Límite de clientes superado.");
+            
+#if defined(_WIN32) || defined(_WIN64)
             closesocket(clientSocket);
+#else
+            close(clientSocket);
+#endif
             continue;
         }
         
@@ -110,12 +149,17 @@ void SocketServer::run(RequestHandlerStop handler) {
     }
 }
 
-void SocketServer::handleClient(std::stop_token st, SOCKET clientSocket, const RequestHandlerStop& handler) {
+void SocketServer::handleClient(std::stop_token st, socket_t clientSocket, const RequestHandlerStop& handler) {
     bool socketClosed = false;
     char buffer[4096];
     if (st.stop_requested()) {
-        shutdown(clientSocket, SD_BOTH);
-        closesocket(clientSocket);
+#if defined(_WIN32) || defined(_WIN64)
+    shutdown(clientSocket, SD_BOTH);
+    closesocket(clientSocket);
+#else
+    shutdown(clientSocket, SHUT_RDWR);
+    close(clientSocket);
+#endif
         socketClosed = true;
         return;
     }
@@ -140,7 +184,11 @@ void SocketServer::handleClient(std::stop_token st, SOCKET clientSocket, const R
         } else if (bytesReceived == 0) {
             Logger::getInstance().info("Cliente cerró la conexión sin enviar datos");
         } else {
+    #if defined(_WIN32) || defined(_WIN64)
             Logger::getInstance().error("Error en recv: " + std::to_string(WSAGetLastError()));
+    #else
+            Logger::getInstance().error("Error en recv");
+    #endif
         }
 
     // ... (maneja bytesReceived como antes)
@@ -148,14 +196,26 @@ void SocketServer::handleClient(std::stop_token st, SOCKET clientSocket, const R
         // Timeout: no llegaron datos en 2 segundos
         Logger::getInstance().info("Timeout esperando datos del cliente en socket " + std::to_string(clientSocket));
          if (!socketClosed) {
+#if defined(_WIN32) || defined(_WIN64)
             closesocket(clientSocket);
+#else
+            close(clientSocket);
+#endif
             Logger::getInstance().info("Conexion cerrada");
         }
     } else {
         // Error en select
+    #if defined(_WIN32) || defined(_WIN64)
         Logger::getInstance().error("Error en select: " + std::to_string(WSAGetLastError()) + " en socket " + std::to_string(clientSocket));
+    #else
+        Logger::getInstance().error("Error en select en socket " + std::to_string(clientSocket));
+    #endif
         if (!socketClosed) {
+#if defined(_WIN32) || defined(_WIN64)
             closesocket(clientSocket);
+#else
+            close(clientSocket);
+#endif
             Logger::getInstance().info("Conexion cerrada");
         }
     }
@@ -185,7 +245,9 @@ void SocketServer::stop() {
 
     joinAllThreads();
 
+#if defined(_WIN32) || defined(_WIN64)
     WSACleanup();
+#endif
     Logger::getInstance().info("Servidor detenido");
 }
 
@@ -203,7 +265,7 @@ void SocketServer::joinAllThreads() {
 }
 
 void SocketServer::cleanupFinishedThreads() {
-    std::vector<SOCKET> toErase;
+    std::vector<socket_t> toErase;
     std::vector<std::jthread> toJoin;
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
@@ -212,7 +274,7 @@ void SocketServer::cleanupFinishedThreads() {
                 toErase.push_back(kv.first);
             }
         }
-        for (SOCKET s : toErase) {
+        for (socket_t s : toErase) {
             auto it = clients.find(s);
             if (it != clients.end()) {
                 toJoin.push_back(std::move(it->second.thread));
@@ -227,14 +289,19 @@ void SocketServer::closeAllClientSockets() {
     shutdownAllClients();
 }
 
-void SocketServer::shutdownClient(SOCKET clientSocket) {
+void SocketServer::shutdownClient(socket_t clientSocket) {
     std::lock_guard<std::mutex> lock(clientsMutex);
     auto it = clients.find(clientSocket);
     if (it != clients.end()) {
         // Pedir parada cooperativa e interrumpir el socket
         it->second.thread.request_stop();
+#if defined(_WIN32) || defined(_WIN64)
         shutdown(clientSocket, SD_BOTH);
         closesocket(clientSocket);
+#else
+        shutdown(clientSocket, SHUT_RDWR);
+        close(clientSocket);
+#endif
         Logger::getInstance().info("Cliente " + std::to_string((uintptr_t)clientSocket) + " marcado para cierre");
         // El hilo saldrá y el recolector lo limpiará
     }
@@ -245,10 +312,15 @@ void SocketServer::shutdownAllClients() {
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
         for (auto &kv : clients) {
-            SOCKET sock = kv.first;
+            socket_t sock = kv.first;
             kv.second.thread.request_stop();
+#if defined(_WIN32) || defined(_WIN64)
             shutdown(sock, SD_BOTH);
             closesocket(sock);
+#else
+            shutdown(sock, SHUT_RDWR);
+            close(sock);
+#endif
             ++count;
         }
     }

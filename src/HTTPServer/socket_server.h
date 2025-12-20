@@ -1,7 +1,8 @@
 #ifndef SOCKET_SERVER_H
 #define SOCKET_SERVER_H
 
-#include <WinSock2.h>
+#include "socket_interface.h"
+#include "socket_types.h"
 #include <functional>
 #include <string>
 #include <atomic>
@@ -14,11 +15,11 @@
 
 // Callback para manejar requests HTTP
 // Recibe el socket para permitir streaming continuo
-using RequestHandler = std::function<void(SOCKET, const std::string&)>;
-using RequestHandlerStop = std::function<void(SOCKET, const std::string&, std::stop_token)>;
+using RequestHandler = std::function<void(socket_t, const std::string&)>;
+using RequestHandlerStop = std::function<void(socket_t, const std::string&, std::stop_token)>;
 
 // Abstracción de servidor TCP con multihilo
-class SocketServer {
+class SocketServer : public ISocketServer {
 public:
     SocketServer(int port);
     ~SocketServer();
@@ -28,7 +29,7 @@ public:
     void stop();                  // Limpieza y detención
 
     // Control fino de clientes
-    void shutdownClient(SOCKET clientSocket);   // Cerrar un cliente concreto desde el servidor
+    void shutdownClient(socket_t clientSocket);   // Cerrar un cliente concreto desde el servidor
     void shutdownAllClients();                  // Cerrar todos los clientes desde el servidor
 
     size_t getActiveClients();
@@ -42,7 +43,7 @@ private:
 
 
     int port;
-    SOCKET serverSocket;
+    socket_t serverSocket;
     std::atomic<bool> running{false};
 
     struct ClientRecord {
@@ -53,7 +54,7 @@ private:
     std::jthread monitorThread;
 
     // Mapa socket -> hilo/estado asociado
-    std::unordered_map<SOCKET, ClientRecord> clients;
+    std::unordered_map<socket_t, ClientRecord> clients;
     std::mutex clientsMutex;     // Protege 'clients'
     
     void cleanupFinishedThreads();
@@ -61,7 +62,7 @@ private:
     void closeAllClientSockets(); // Compatibilidad: llama a shutdownAllClients()
 
     // Worker del cliente con cancelación cooperativa
-    void handleClient(std::stop_token st, SOCKET clientSocket, const RequestHandlerStop& handler);
+    void handleClient(std::stop_token st, socket_t clientSocket, const RequestHandlerStop& handler);
 };
 
 #endif // SOCKET_SERVER_H

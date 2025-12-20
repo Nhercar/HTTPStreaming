@@ -1,6 +1,6 @@
 #include "socket_utils.h"
 
-bool sendAll(SOCKET sock, const uint8_t* data, size_t len) {
+bool sendAll(socket_t sock, const uint8_t* data, size_t len) {
     size_t totalSent = 0;
     while (totalSent < len) {
         int sent = send(sock, reinterpret_cast<const char*>(data + totalSent), 
@@ -13,7 +13,7 @@ bool sendAll(SOCKET sock, const uint8_t* data, size_t len) {
     return true;
 }
 
-bool receiveAll(SOCKET sock, uint8_t* data, size_t len) {
+bool receiveAll(socket_t sock, uint8_t* data, size_t len) {
     size_t totalReceived = 0;
     while (totalReceived < len) {
         int received = recv(sock, reinterpret_cast<char*>(data + totalReceived), 
