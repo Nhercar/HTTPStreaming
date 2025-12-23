@@ -221,7 +221,11 @@ void SocketServer::handleClient(std::stop_token st, socket_t clientSocket, const
     }
 
     if (!socketClosed) {
+#if defined(_WIN32) || defined(_WIN64)
         closesocket(clientSocket);
+#else
+        close(clientSocket);
+#endif
         Logger::getInstance().info("Conexion cerrada");
     }
 

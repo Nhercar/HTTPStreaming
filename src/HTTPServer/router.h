@@ -14,7 +14,7 @@ class Router{
 public:
     
     void registerRoute(const std::string& method, const std::string& path, RouterHandler handler);
-    bool route(const std::string& method, const std::string& path, SOCKET socket, const std::string& requestBody, std::stop_token st) const;
+    bool route(const std::string& method, const std::string& path, socket_t socket, const std::string& requestBody, std::stop_token st) const;
     void setDefaultRoute(RouterHandler handler);
 
 private:

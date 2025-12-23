@@ -27,7 +27,7 @@ int main() {
     router.setDefaultRoute(notFoundHandler);
 
     // Handler que parsea el request y delega al router
-    auto routedHandler = [&router](SOCKET socket, const std::string& rawRequest, std::stop_token st) {
+    auto routedHandler = [&router](socket_t socket, const std::string& rawRequest, std::stop_token st) {
         // Parsear request
         HTTPRequest req = parseHTTPRequest(rawRequest);
         Logger::getInstance().info("Metodo: " + req.method + ", Path: " + req.path);
