@@ -16,7 +16,16 @@ struct HTTPRequest {
     std::string body;               // Contenido del POST si aplica.
 };
 
+struct HTTPResponse {
+    int statusCode = 200;             // 200 = OK, 404 = Not Found, etc.
+    std::string statusMessage = "OK";               // OK, Not Found...
+    std::map<std::string, std::string> headers; // {"Host": "localhost:8080", ...}
+    std::string body;                           // Cuerpo cuando sea neceario
+};
+
 //Función encargada de parsear
 HTTPRequest parseHTTPRequest(const std::string& rawRequest);
+
+std::string buildHttpResponse(const HTTPResponse& resp);
 
 #endif

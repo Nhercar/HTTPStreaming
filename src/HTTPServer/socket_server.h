@@ -1,7 +1,18 @@
-#ifndef SOCKET_SERVER_H
-#define SOCKET_SERVER_H
+#pragma once
 
-#include <WinSock2.h>
+#ifdef _WIN32
+    #include <winsock2.h>
+    using socket_t = SOCKET;
+    #define INVALID_SOCKET_T INVALID_SOCKET
+#else
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    using socket_t = int;
+    #define INVALID_SOCKET_T -1
+#endif
+
+
+
 #include <functional>
 #include <string>
 #include <atomic>
@@ -14,8 +25,13 @@
 
 // Callback para manejar requests HTTP
 // Recibe el socket para permitir streaming continuo
-using RequestHandler = std::function<void(SOCKET, const std::string&)>;
 using RequestHandlerStop = std::function<void(SOCKET, const std::string&, std::stop_token)>;
+
+struct ClientRecord {
+    std::jthread thread;                                   // Hilo del cliente
+    std::shared_ptr<std::atomic<bool>> finished;            // Marca de finalización cooperativa
+};
+
 
 // Abstracción de servidor TCP con multihilo
 class SocketServer {
@@ -42,18 +58,13 @@ private:
 
 
     int port;
-    SOCKET serverSocket;
+    socket_t serverSocket;
     std::atomic<bool> running{false};
-
-    struct ClientRecord {
-        std::jthread thread;                                   // Hilo del cliente
-        std::shared_ptr<std::atomic<bool>> finished;            // Marca de finalización cooperativa
-    };
 
     std::jthread monitorThread;
 
     // Mapa socket -> hilo/estado asociado
-    std::unordered_map<SOCKET, ClientRecord> clients;
+    std::unordered_map<socket_t, ClientRecord> clients;
     std::mutex clientsMutex;     // Protege 'clients'
     
     void cleanupFinishedThreads();
@@ -63,5 +74,3 @@ private:
     // Worker del cliente con cancelación cooperativa
     void handleClient(std::stop_token st, SOCKET clientSocket, const RequestHandlerStop& handler);
 };
-
-#endif // SOCKET_SERVER_H

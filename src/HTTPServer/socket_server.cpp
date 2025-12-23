@@ -46,7 +46,7 @@ bool SocketServer::start() {
 
     // Bind
     result = bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (result == SOCKET_ERROR) {
+    if (result == SOCKET_ERROR_T) {
         Logger::getInstance().error("Error en bind: " + std::to_string(WSAGetLastError()));
         closesocket(serverSocket);
         WSACleanup();
@@ -56,7 +56,7 @@ bool SocketServer::start() {
 
     // Listen
     result = listen(serverSocket, SOMAXCONN);
-    if (result == SOCKET_ERROR) {
+    if (result == SOCKET_ERROR_T) {
         Logger::getInstance().error("Error en listen: " + std::to_string(WSAGetLastError()));
         closesocket(serverSocket);
         WSACleanup();

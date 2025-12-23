@@ -13,7 +13,6 @@ find_package(OpenCV REQUIRED)
 # Sources for the minimal HTTP server
 set(HTTP_SERVER_SOURCES
     src/HTTPServer/http_parser.cpp
-    src/HTTPServer/http_response.cpp
     src/HTTPServer/logger.cpp
     src/HTTPServer/router.cpp
     src/HTTPServer/socket_server.cpp

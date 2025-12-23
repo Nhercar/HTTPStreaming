@@ -4,9 +4,24 @@
 #include "../codec/frame_encoder.h"
 
 
+void StreamHandler::addClient(socket_t client) {
+    std::lock_guard<std::mutex> lock(mtx);
+    clients.insert(client);
+}
+
+void StreamHandler::removeClient(socket_t client) {
+    std::lock_guard<std::mutex> lock(mtx);
+    clients.erase(client);
+}
+
+std::size_t StreamHandler::getClientCount() {
+    std::lock_guard<std::mutex> lock(mtx);
+    return clients.size();
+}
 
 
-void homeHandler(SOCKET socket, const std::string&, std::stop_token st) {
+
+void homeHandler(socket_t socket, const std::string&, std::stop_token st) {
     HTTPResponse resp;
     resp.statusCode = 200;
     resp.statusMessage = "OK";
@@ -29,7 +44,7 @@ void homeHandler(SOCKET socket, const std::string&, std::stop_token st) {
 }
 
 
-void notFoundHandler(SOCKET socket, const std::string&, std::stop_token st) {
+void notFoundHandler(socket_t socket, const std::string&, std::stop_token st) {
     std::ostringstream oss;
     oss << "ruta no encontrada";
     Logger::getInstance().debug(oss.str());
@@ -52,7 +67,7 @@ void notFoundHandler(SOCKET socket, const std::string&, std::stop_token st) {
 }
 
 
-void streamHandler(SOCKET socket, const std::string&, std::stop_token st) {
+void streamHandler(socket_t socket, const std::string&, std::stop_token st) {
     FrameEncoder encoder;
     const std::string imagePath = "C:/Users/nacho/OneDrive/Escritorio/nacho.jpg";
 
@@ -69,7 +84,6 @@ void streamHandler(SOCKET socket, const std::string&, std::stop_token st) {
     if(!sendAll(socket, reinterpret_cast<const uint8_t*>(initial.data()), initial.size())) return;
 
     const std::string boundary = "frame";
-    int frameId = 0;
     
     while (!st.stop_requested()) {
         std::vector<uint8_t> jpegData;
