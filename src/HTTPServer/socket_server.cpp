@@ -41,7 +41,7 @@ bool SocketServer::start() {
     // Configurar dirección
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port);
+    serverAddr.sin_port = htons(static_cast<u_short>(port));
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
     // Bind
@@ -79,7 +79,7 @@ void SocketServer::run(RequestHandlerStop handler) {
         // Limpiar tareas terminadas antes de aceptar nuevo cliente
         cleanupFinishedThreads();
         // Aceptar conexión
-        SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
+        socket_t clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket == INVALID_SOCKET) {
             if (running) {
                 Logger::getInstance().error("Error al aceptar cliente: " + std::to_string(WSAGetLastError()));
@@ -87,7 +87,7 @@ void SocketServer::run(RequestHandlerStop handler) {
             continue;
         }
         if (static_cast<int>(getActiveClients ()) >= MAX_THREADS) {
-            Logger::getInstance().info("Límite de clientes superado.");
+            Logger::getInstance().info("Limite de clientes superado.");
             closesocket(clientSocket);
             continue;
         }
@@ -110,7 +110,7 @@ void SocketServer::run(RequestHandlerStop handler) {
     }
 }
 
-void SocketServer::handleClient(std::stop_token st, SOCKET clientSocket, const RequestHandlerStop& handler) {
+void SocketServer::handleClient(std::stop_token st, socket_t clientSocket, const RequestHandlerStop& handler) {
     bool socketClosed = false;
     char buffer[4096];
     if (st.stop_requested()) {
@@ -203,7 +203,7 @@ void SocketServer::joinAllThreads() {
 }
 
 void SocketServer::cleanupFinishedThreads() {
-    std::vector<SOCKET> toErase;
+    std::vector<socket_t> toErase;
     std::vector<std::jthread> toJoin;
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
@@ -212,7 +212,7 @@ void SocketServer::cleanupFinishedThreads() {
                 toErase.push_back(kv.first);
             }
         }
-        for (SOCKET s : toErase) {
+        for (socket_t s : toErase) {
             auto it = clients.find(s);
             if (it != clients.end()) {
                 toJoin.push_back(std::move(it->second.thread));
@@ -227,7 +227,7 @@ void SocketServer::closeAllClientSockets() {
     shutdownAllClients();
 }
 
-void SocketServer::shutdownClient(SOCKET clientSocket) {
+void SocketServer::shutdownClient(socket_t clientSocket) {
     std::lock_guard<std::mutex> lock(clientsMutex);
     auto it = clients.find(clientSocket);
     if (it != clients.end()) {
@@ -245,7 +245,7 @@ void SocketServer::shutdownAllClients() {
     {
         std::lock_guard<std::mutex> lock(clientsMutex);
         for (auto &kv : clients) {
-            SOCKET sock = kv.first;
+            socket_t sock = kv.first;
             kv.second.thread.request_stop();
             shutdown(sock, SD_BOTH);
             closesocket(sock);
@@ -267,7 +267,6 @@ void SocketServer::startMonitor() {
         using namespace std::chrono_literals;
         while (!st.stop_requested()) {
             cleanupFinishedThreads();
-            Logger::getInstance().info("Monitor: " + std::to_string(getActiveClients()) + " clientes activos");
             std::this_thread::sleep_for(1s);
         }
     });
