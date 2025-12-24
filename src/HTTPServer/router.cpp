@@ -12,12 +12,12 @@ bool Router::route(const std::string& method, const std::string& path, socket_t 
     auto it = routes.find(key);
     if (it != routes.end()) { 
         Logger::getInstance().info("Ruta encontrada: " + key);
-        it->second(socket, requestBody, st);
+        it->second->handle(socket, requestBody, st);
         return true;
     }
     if (defaultRoute) { // Usar ruta por defecto si existe Pero donde se le habría asignado
         Logger::getInstance().info("Usando ruta por defecto para: " + key);
-        defaultRoute(socket, requestBody, st);
+        defaultRoute->handle(socket, requestBody, st);
         return true;
     }
     
@@ -25,7 +25,7 @@ bool Router::route(const std::string& method, const std::string& path, socket_t 
 }
 
 void Router::setDefaultRoute(RouterHandler handler) {
-    defaultRoute = std::move(handler);
+    defaultRoute = handler;
 }
 
 std::string Router::makeKey(const std::string& method, const std::string& path) const {

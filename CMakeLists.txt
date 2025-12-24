@@ -19,6 +19,7 @@ set(HTTP_SERVER_SOURCES
     src/HTTPServer/socket_utils.cpp
     src/streaming/mjpeg_handler.cpp
     src/codec/frame_encoder.cpp
+    src/streaming/stateless_handlers.cpp
     main.cpp
 )
 

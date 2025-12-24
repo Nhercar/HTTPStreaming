@@ -5,10 +5,13 @@
 #include <string>
 #include <unordered_map>
 #include <stop_token>
+#include <memory>
 
 #include "socket_server.h"
+#include "../streaming/handler_inerface.h"
 
-using RouterHandler = std::function<void(socket_t, const std::string&, std::stop_token)>;
+
+using RouterHandler = std::shared_ptr<IHandler>;
 
 
 class Router{

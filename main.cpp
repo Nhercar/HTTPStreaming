@@ -3,6 +3,7 @@
 #include "logger.h"
 #include "router.h"
 #include "mjpeg_handler.h"
+#include "stateless_handlers.h"
 
 
 #include <string>
@@ -14,9 +15,9 @@ int main() {
 
     // Crear router y registrar rutas
     Router router;
-    router.registerRoute("GET", "/", homeHandler);
-    router.registerRoute("GET", "/stream", streamHandler);
-    router.setDefaultRoute(notFoundHandler);
+    router.registerRoute("GET", "/", std::make_shared<HomeHandler>());
+    router.registerRoute("GET", "/stream", std::make_shared<StreamHandler>());
+    router.setDefaultRoute(std::make_shared<NotFoundHandler>());
 
     // Handler que parsea el request y delega al router
     auto routedHandler = [&router](socket_t socket, const std::string& rawRequest, std::stop_token st) {

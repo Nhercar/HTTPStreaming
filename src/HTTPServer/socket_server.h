@@ -4,13 +4,16 @@
     #include <winsock2.h>
     using socket_t = SOCKET;
     #define INVALID_SOCKET_T INVALID_SOCKET
+    #define SOCKET_ERROR_T SOCKET_ERROR
+    inline void closeSocket(socket_t sock) { closesocket(sock); }
 #else
     #include <sys/types.h>
     #include <sys/socket.h>
     using socket_t = int;
     #define INVALID_SOCKET_T -1
+    #define SOCKET_ERROR_T -1
+    inline void closeSocket(socket_t sock) { close(sock); }
 #endif
-
 
 
 #include <functional>
