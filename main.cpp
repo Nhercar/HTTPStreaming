@@ -4,7 +4,8 @@
 #include "mjpeg_handler.h"
 #include "stateless_handlers.h"
 
-#include "../HTTPServer/ServerInterface/Iserver.h"
+#include "ServerInterface/IServer.h"
+#include <signal.h>
 
 
 #include <string>
@@ -40,6 +41,9 @@ int main() {
         Logger::getInstance().error("Fallo al iniciar el servidor");
         return 1;
     }
+
+    // Evitar que un send() a un socket cerrado genere SIGPIPE y termine el proceso
+    signal(SIGPIPE, SIG_IGN);
 
     // Correr servidor
     server->run(routedHandler);

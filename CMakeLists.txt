@@ -25,6 +25,8 @@ set(HTTP_SERVER_SOURCES
 
 if (WIN32)
     list(APPEND HTTP_SERVER_SOURCES src/HTTPServer/WindowsServer/windows_server.cpp)
+else()
+    list(APPEND HTTP_SERVER_SOURCES src/HTTPServer/LinuxServer/linux_server.cpp)
 endif()
 
 add_executable(HTTPStreaming ${HTTP_SERVER_SOURCES})

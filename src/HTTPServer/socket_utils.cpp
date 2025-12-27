@@ -3,8 +3,13 @@
 bool sendAll(socket_t sock, const uint8_t* data, size_t len) {
     size_t totalSent = 0;
     while (totalSent < len) {
+#ifdef MSG_NOSIGNAL
+        int flags = MSG_NOSIGNAL;
+#else
+        int flags = 0;
+#endif
         int sent = send(sock, reinterpret_cast<const char*>(data + totalSent), 
-                       static_cast<int>(len - totalSent), 0);
+                       static_cast<int>(len - totalSent), flags);
         if (sent == SOCKET_ERROR_T || sent == 0) {
             return false;
         }
