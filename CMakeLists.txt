@@ -15,13 +15,17 @@ set(HTTP_SERVER_SOURCES
     src/HTTPServer/http_parser.cpp
     src/HTTPServer/logger.cpp
     src/HTTPServer/router.cpp
-    src/HTTPServer/socket_server.cpp
     src/HTTPServer/socket_utils.cpp
     src/streaming/mjpeg_handler.cpp
     src/codec/frame_encoder.cpp
     src/streaming/stateless_handlers.cpp
+    src/HTTPServer/ServerInterface/server_factory.cpp
     main.cpp
 )
+
+if (WIN32)
+    list(APPEND HTTP_SERVER_SOURCES src/HTTPServer/WindowsServer/windows_server.cpp)
+endif()
 
 add_executable(HTTPStreaming ${HTTP_SERVER_SOURCES})
 

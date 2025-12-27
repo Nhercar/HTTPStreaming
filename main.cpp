@@ -1,9 +1,10 @@
-#include "socket_server.h"
 #include "http_parser.h"
 #include "logger.h"
 #include "router.h"
 #include "mjpeg_handler.h"
 #include "stateless_handlers.h"
+
+#include "../HTTPServer/ServerInterface/Iserver.h"
 
 
 #include <string>
@@ -18,6 +19,7 @@ int main() {
     router.registerRoute("GET", "/", std::make_shared<HomeHandler>());
     router.registerRoute("GET", "/stream", std::make_shared<StreamHandler>());
     router.setDefaultRoute(std::make_shared<NotFoundHandler>());
+    router.maxClientsRoute(std::make_shared<MaxClientsReached>());
 
     // Handler que parsea el request y delega al router
     auto routedHandler = [&router](socket_t socket, const std::string& rawRequest, std::stop_token st) {
@@ -32,15 +34,15 @@ int main() {
     };
 
     // Crear servidor
-    SocketServer server(8080);
+    std::unique_ptr<IServer> server = ServerFactory::create(8080);
 
-    if (!server.start()) {
+    if (!server->start()) {
         Logger::getInstance().error("Fallo al iniciar el servidor");
         return 1;
     }
 
     // Correr servidor
-    server.run(routedHandler);
+    server->run(routedHandler);
 
     return 0;
 }

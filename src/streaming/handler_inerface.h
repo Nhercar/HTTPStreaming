@@ -5,7 +5,7 @@
 #include <vector>
 
 
-#include "../HTTPServer/socket_server.h"
+#include "../HTTPServer/ServerInterface/IServer.h"
 
 class IHandler {
 public:

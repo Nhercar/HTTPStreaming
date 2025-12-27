@@ -28,6 +28,10 @@ void Router::setDefaultRoute(RouterHandler handler) {
     defaultRoute = handler;
 }
 
+void Router::maxClientsRoute(RouterHandler handler) {
+    defaultRoute = handler;
+}
+
 std::string Router::makeKey(const std::string& method, const std::string& path) const {
     return method + " " + path;
 }

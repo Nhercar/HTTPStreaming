@@ -2,6 +2,7 @@
 #include "socket_utils.h"
 #include "logger.h"
 #include "../codec/frame_encoder.h"
+#include "../HTTPServer/ServerInterface/IServer.h"
 
 
 StreamHandler::StreamHandler() {
@@ -35,7 +36,7 @@ void StreamHandler::stopProducer() {
 
 void StreamHandler::producerLoop(std::stop_token st) {
     FrameEncoder encoder;
-    const std::string imagePath = "C:/Users/nacho/OneDrive/Escritorio/nacho.jpg";
+    const std::string imagePath = "../nacho.jpg";
     const auto frameDelay = std::chrono::milliseconds(100); // ~10 FPS by default
 
     while (!st.stop_requested() && producing.load(std::memory_order_relaxed)) {

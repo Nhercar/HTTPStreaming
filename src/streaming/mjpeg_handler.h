@@ -14,7 +14,7 @@
 
 #include "logger.h"
 #include "http_parser.h"
-#include "socket_server.h"
+#include "../HTTPServer/ServerInterface/IServer.h"
 #include "handler_inerface.h"
 
 class StreamHandler : public IHandler {

@@ -2,6 +2,7 @@
 #include "socket_utils.h"
 #include "http_parser.h"
 #include "logger.h"
+#include "../HTTPServer/ServerInterface/IServer.h"
 
 void HomeHandler::handle(socket_t client, const std::string&, std::stop_token) {
     HTTPResponse resp;
@@ -48,3 +49,27 @@ void NotFoundHandler::handle(socket_t client, const std::string&, std::stop_toke
     sendAll(client, reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
     closeSocket(client);
 }
+
+void MaxClientsReached::handle(socket_t client, const std::string&, std::stop_token) {
+
+    Logger::getInstance().info("Número máximo de clientes alcanzado. Devolviendo info");
+    HTTPResponse resp;
+    resp.statusCode = 404;
+    resp.statusMessage = "Not Found";
+    resp.headers["Content-Type"] = "text/html; charset=UTF-8";
+    resp.headers["Connection"] = "close";
+    resp.body = 
+        "<html>"
+        "<head><title>404 -Lo  sentimos</title></head>"
+        "<body>"
+        "<h1>404 -  Máximo número de clientes  alcanzado. Inténtelo más tarde</h1>"
+        "<p><a href='/'>Volver al inicio</a></p>"
+        "</body>"
+        "</html>";
+    
+    std::string payload = buildHttpResponse(resp);
+    sendAll(client, reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
+    closeSocket(client);
+}
+
+

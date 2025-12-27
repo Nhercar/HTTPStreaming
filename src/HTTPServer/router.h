@@ -7,7 +7,6 @@
 #include <stop_token>
 #include <memory>
 
-#include "socket_server.h"
 #include "../streaming/handler_inerface.h"
 
 
@@ -20,6 +19,7 @@ public:
     void registerRoute(const std::string& method, const std::string& path, RouterHandler handler);
     bool route(const std::string& method, const std::string& path, socket_t socket, const std::string& requestBody, std::stop_token st) const;
     void setDefaultRoute(RouterHandler handler);
+    void maxClientsRoute(RouterHandler handler);
 
 private:
     
