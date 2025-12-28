@@ -21,6 +21,7 @@ set(HTTP_SERVER_SOURCES
     src/streaming/stateless_handlers.cpp
     src/HTTPServer/ServerInterface/server_factory.cpp
     main.cpp
+    src/camera/webcam.cpp
 )
 
 if (WIN32)
@@ -36,7 +37,7 @@ target_include_directories(HTTPStreaming PRIVATE src src/HTTPServer src/streamin
 if (WIN32)
     target_link_libraries(HTTPStreaming PRIVATE ws2_32 ${OpenCV_LIBS})
 else()
-    target_link_libraries(HTTPStreaming PRIVATE ${OpenCV_LIBS})
+    target_link_libraries(HTTPStreaming PRIVATE ${OpenCV_LIBS} pthread)
 endif()
 
 # Helpful warnings (opcional)

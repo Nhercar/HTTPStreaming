@@ -2,7 +2,7 @@
 #include <iostream>
 
 Webcam::Webcam(int deviceIndex) 
-    : cap_(deviceIndex), deviceIndex_(deviceIndex) {
+    : cap_(deviceIndex, cv::CAP_V4L2), deviceIndex_(deviceIndex) {
 }
 
 Webcam::~Webcam() {
