@@ -38,10 +38,10 @@ void StreamHandler::stopProducer() {
 
 void StreamHandler::producerLoop(std::stop_token st) {
     // Increase JPEG quality to 90
-    FrameEncoder encoder(90);
+    FrameEncoder encoder(70);
     const std::string imagePath = "../nacho.jpg";
     // Target ~25 FPS
-    const auto frameDelay = std::chrono::milliseconds(40);
+    const auto frameDelay = std::chrono::milliseconds(10);
 
     // Try to open webcam devices /dev/video0..3 automatically
     int openedIndex = -1;
@@ -62,7 +62,7 @@ void StreamHandler::producerLoop(std::stop_token st) {
     if (openedIndex == -1) {
         Logger::getInstance().info("Producer: no webcam device opened, falling back to disk image");
     } else {
-        cam.setResolution(1280, 720);
+        cam.setResolution(640, 480);
         cam.setFPS(25);
         Logger::getInstance().info("Producer: webcam opened on device " + std::to_string(openedIndex));
     }
