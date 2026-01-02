@@ -1,26 +1,36 @@
+
+
 #include "stateless_handlers.h"
 #include "socket_utils.h"
 #include "http_parser.h"
 #include "logger.h"
+#include <fstream>
 #include "../HTTPServer/ServerInterface/IServer.h"
 
 void HomeHandler::handle(socket_t client, const std::string&, std::stop_token) {
     HTTPResponse resp;
-    resp.statusCode = 200;
-    resp.statusMessage = "OK";
-    resp.headers["Content-Type"] = "text/html; charset=UTF-8";
-    resp.body = 
-        "<html>"
-        "<head><title>Servidor HTTP Streaming</title></head>"
-        "<body>"
-        "<h1>Bienvenido al servidor HTTP</h1>"
-        "<p>Rutas disponibles:</p>"
-        "<ul>"
-        "<li><a href='/'>/ - Esta página (Home)</a></li>"
-        "<li><a href='/stream'>/stream - Stream MJPEG (por implementar)</a></li>"
-        "</ul>"
-        "</body>"
-        "</html>";
+    
+    // Intentamos abrir el archivo desde la carpeta assets
+    // NOTA: La ruta es relativa a donde ejecutas el programa. 
+    // En Docker (WORKDIR /app), "assets/homepage.htm" buscará en /app/assets/homepage.htm
+    std::ifstream file("../assets/html/homepage.html");
+
+    if (file.is_open()) {
+        std::ostringstream ss;
+        ss << file.rdbuf(); // Leemos todo el contenido del archivo
+        resp.body = ss.str();
+        
+        resp.statusCode = 200;
+        resp.statusMessage = "OK";
+        resp.headers["Content-Type"] = "text/html; charset=UTF-8";
+    } else {
+        // Si no encuentra el archivo, mostramos un error y logueamos
+        Logger::getInstance().error("No se pudo abrir assets/html/homepage.htm. Verifique la ruta.");
+        resp.statusCode = 404;
+        resp.statusMessage = "Not Found";
+        resp.headers["Content-Type"] = "text/html; charset=UTF-8";
+        resp.body = "<h1>Error: No se encuentra la interfaz (assets/html/homepage.html)</h1>";
+    }
     
     std::string payload = buildHttpResponse(resp);
     sendAll(client, reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
