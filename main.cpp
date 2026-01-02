@@ -42,10 +42,12 @@ int main() {
         }
     };
 
-    // Registrar manejadores de señal para salida limpia
-    signal(SIGINT, handle_signal);
-    signal(SIGTERM, handle_signal);
-    signal(SIGPIPE, SIG_IGN);
+        // Registrar manejadores de señal para salida limpia
+        signal(SIGINT, handle_signal);
+        signal(SIGTERM, handle_signal);
+    #ifdef SIGPIPE
+        signal(SIGPIPE, SIG_IGN);
+    #endif
 
     // Bucle principal: reinicia el servidor si se sale, hasta que se reciba SIGINT/SIGTERM
     while (g_keep_running) {
